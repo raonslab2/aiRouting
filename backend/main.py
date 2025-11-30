@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from typing import List
+import base64
 
 from fastapi import FastAPI, Form, UploadFile
 from fastapi.responses import JSONResponse
@@ -60,11 +61,16 @@ async def analyze_board(file: UploadFile, target_nets: str = Form("")):
 
     try:
         ses_path, log_path, rc = run_freerouting(dsn_path, tmpdir)
+        ses_b64 = None
+        if ses_path.exists():
+            ses_b64 = base64.b64encode(ses_path.read_bytes()).decode("ascii")
+        log_text = log_path.read_text(encoding="utf-8") if log_path.exists() else ""
         return JSONResponse(
             {
                 "status": "ok" if rc == 0 else "error",
-                "ses": str(ses_path),
-                "log": str(log_path),
+                "ses_b64": ses_b64,
+                "ses_filename": ses_path.name,
+                "log": log_text,
                 "target_nets": nets,
                 "return_code": rc,
             }
@@ -72,7 +78,7 @@ async def analyze_board(file: UploadFile, target_nets: str = Form("")):
     except Exception as e:
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
     finally:
-        # Keep artifacts for debugging? For now, remove to avoid leaks.
+        # Remove temp artifacts after returning encoded content.
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 

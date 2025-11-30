@@ -31,6 +31,6 @@ uvicorn main:app --reload
 ```
 
 ## TODO
-- SES 제안/적용 흐름 구현(초기엔 파일 재적용, 이후 pcbnew API 직접 삽입).
+- SES 제안/적용 흐름: 현재는 SES/log를 base64로 반환해 플러그인이 임시 폴더에 저장만 함. 향후 KiCad에 직접 적용(pcbnew API/세션 재적용) 구현.
 - Freerouting CLI 파라미터 튜닝(타겟 넷만 라우팅, 제안/설명 반환).
 - DRC/룰 요약 및 “Fix it” 제안 추가.
