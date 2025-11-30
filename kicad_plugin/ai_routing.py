@@ -10,18 +10,24 @@ class AiRoutingPanel(wx.Panel):
         super().__init__(parent)
         vbox = wx.BoxSizer(wx.VERTICAL)
 
+        self.backend_url = wx.TextCtrl(self, value="http://127.0.0.1:8000")
         self.net_filter = wx.TextCtrl(self, value="")
-        self.btn_analyze = wx.Button(self, label="Analyze Selected Nets")
+        self.btn_fill_selected = wx.Button(self, label="Use Selected Nets")
+        self.btn_analyze = wx.Button(self, label="Analyze")
         self.log = wx.TextCtrl(self, style=wx.TE_MULTILINE | wx.TE_READONLY)
 
+        vbox.Add(wx.StaticText(self, label="Backend URL"), flag=wx.ALL, border=4)
+        vbox.Add(self.backend_url, flag=wx.EXPAND | wx.ALL, border=4)
         vbox.Add(wx.StaticText(self, label="Target nets (comma-separated, optional)"), flag=wx.ALL, border=4)
         vbox.Add(self.net_filter, flag=wx.EXPAND | wx.ALL, border=4)
+        vbox.Add(self.btn_fill_selected, flag=wx.EXPAND | wx.ALL, border=4)
         vbox.Add(self.btn_analyze, flag=wx.EXPAND | wx.ALL, border=4)
         vbox.Add(wx.StaticText(self, label="Logs"), flag=wx.ALL, border=4)
         vbox.Add(self.log, proportion=1, flag=wx.EXPAND | wx.ALL, border=4)
 
         self.SetSizer(vbox)
 
+        self.btn_fill_selected.Bind(wx.EVT_BUTTON, self.on_fill_selected)
         self.btn_analyze.Bind(wx.EVT_BUTTON, self.on_analyze)
 
     def export_board_to_dsn(self):
@@ -35,6 +41,17 @@ class AiRoutingPanel(wx.Panel):
         exporter.Export()
         return dsn_path, tmpdir
 
+    def on_fill_selected(self, event):
+        board = pcbnew.GetBoard()
+        nets = set()
+        for item in board.GetTracks():
+            if item.IsSelected():
+                nets.add(item.GetNetname())
+        if nets:
+            self.net_filter.SetValue(", ".join(sorted(nets)))
+        else:
+            self.log.AppendText("No selected tracks/vias to infer nets.\n")
+
     def on_analyze(self, event):
         try:
             dsn_path, tmpdir = self.export_board_to_dsn()
@@ -43,11 +60,12 @@ class AiRoutingPanel(wx.Panel):
             return
 
         nets = self.net_filter.GetValue().strip()
+        backend = self.backend_url.GetValue().strip() or "http://127.0.0.1:8000"
         self.log.AppendText("Sending to backend...\n")
         try:
             with open(dsn_path, "rb") as f:
                 resp = requests.post(
-                    "http://127.0.0.1:8000/analyze",
+                    f"{backend}/analyze",
                     files={"file": ("board.dsn", f, "application/octet-stream")},
                     data={"target_nets": nets},
                     timeout=120,
